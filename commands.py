@@ -1,9 +1,20 @@
 commands = {}
 import db
+from functools import wraps
 
 def command(func):
     commands[func.__name__] = func
     return func
+
+def mod_only(func):
+    @wraps(func)
+    def restricted(connection, event, body):
+        session = connection.db()
+        nick = event.source.nick
+        if not db.find(session, db.User, name=nick, mod=True).all():
+            return "{} must be a mod to do that.".format(nick)
+        return func(connection, event, body)
+    return restricted
 
 
 @command
@@ -24,6 +35,7 @@ def help(connection, event, body):
         connection.say(message)
 
 @command
+@mod_only
 def add(connection, event, body):
     '''Creates a value.'''
     args = body.split(maxsplit = 1)
@@ -65,6 +77,7 @@ def add(connection, event, body):
     return "I don't know what a " + target + " is."
 
 @command
+@mod_only
 def remove(connection, event, body):
     '''Deletes a value.'''
     args = body.split(maxsplit = 1)

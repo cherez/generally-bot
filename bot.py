@@ -9,6 +9,9 @@ import threading
 import collections
 import time
 import custom_command
+import schedules
+from schedules import every
+import requests
 
 class Bot(irc.bot.SingleServerIRCBot):
     def __init__(self, config):
@@ -30,7 +33,7 @@ class Bot(irc.bot.SingleServerIRCBot):
                 kwargs={'chat_queue': self.chat_queue})
         self.chat_thread.daemon = True
         self.chat_thread.start()
-
+        self._start_schedules()
 
     def on_privmsg(self, c, e):
         print('privmsg')
@@ -84,6 +87,10 @@ class Bot(irc.bot.SingleServerIRCBot):
                 self.connection.privmsg(self.channel, message)
             time.sleep(1)
 
+    def _start_schedules(self):
+        for schedule in schedules.schedules:
+            self.reactor.execute_every(schedule.delay, schedule.function, [self])
+            self.reactor.execute_at(0, schedule.function, [self])
 
     def find_command(self, command):
         function = commands.commands.get(command)
@@ -101,9 +108,36 @@ class Bot(irc.bot.SingleServerIRCBot):
         url = 'http://tmi.twitch.tv/group/user/{}/chatters'.format(channel)
         try:
             r = requests.get(url)
-            self.user_data = r.json()
-            return self.user_data['chatters']
+            data = r.json()
+            if data: #sometimes this just fails :/
+                self.user_data = r.json()
+                #toss this in the reactor to keep DB stuff in the main thread
+                self.reactor.execute_at(0, self.update_users)
         except ValueError:
             return None
         except TypeError:
             return None
+
+    def update_users(self):
+        print("Updating users")
+        users = self.user_data['chatters']
+        session = self.db()
+        for mod in users['moderators']:
+            print("Found mod {}".format(mod))
+            user = db.find_or_make(session, db.User, name=mod)
+            user.mod = True
+            print(user.__dict__)
+
+        for viewer in users['viewers']:
+            print("Found viewer {}".format(viewer))
+            user = db.find_or_make(session, db.User, name=viewer)
+            user.mod = False
+        print("Committing")
+        session.commit()
+
+@every(60)
+def update_users(connection):
+    #background this to not block
+    thread = threading.Thread(target = connection.get_users)
+    thread.daemon = True
+    thread.start()

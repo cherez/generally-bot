@@ -3,6 +3,7 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound
 
 Base = declarative_base()
 
@@ -40,7 +41,7 @@ class DictItem(Base):
 
 
 def init(path):
-    engine = sqlalchemy.create_engine('sqlite:///{}.sqlite'.format(path), connect_args={'check_same_thread':False})
+    engine = sqlalchemy.create_engine('sqlite:///{}.sqlite'.format(path))
     session_factory = sessionmaker(bind=engine)
     Base.metadata.create_all(engine)
     return session_factory
@@ -56,6 +57,14 @@ def add(session, table, **values):
 
 def find(session, table, **values):
     return session.query(table).filter_by(**values)
+
+def find_or_make(session, table, **values):
+    try:
+        return find(session, table, **values).one()
+    except NoResultFound:
+        result = table(**values)
+        session.add(result)
+        return result
 
 def remove(session, table, **values):
     try:
