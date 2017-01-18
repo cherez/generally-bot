@@ -29,10 +29,6 @@ class Bot(irc.bot.SingleServerIRCBot):
     def on_welcome(self, c, e):
         print('Welcomed! Joining ' + self.channel)
         c.join(self.channel)
-        self.chat_thread = threading.Thread(target=self._process_chat_queue,
-                kwargs={'chat_queue': self.chat_queue})
-        self.chat_thread.daemon = True
-        self.chat_thread.start()
         self._start_schedules()
 
     def on_privmsg(self, c, e):
@@ -73,19 +69,11 @@ class Bot(irc.bot.SingleServerIRCBot):
         print("Saying " + message)
         self.chat_queue.append(message)
 
-    def _process_chat_queue(self, chat_queue):
-        """
-        If there are messages in the chat queue that need
-        to be sent, pop off the oldest one and pass it
-        to the ts.send_message function. Then sleep for
-        a second to stay below the twitch rate limit.
-        """
-        while True:
-            if len(chat_queue) > 0:
-                message = chat_queue.pop()
-                print("Sending " + message)
-                self.connection.privmsg(self.channel, message)
-            time.sleep(1)
+    def _process_chat_queue(self):
+        if len(self.chat_queue) > 0:
+            message = self.chat_queue.pop()
+            print("Sending " + message)
+            self.connection.privmsg(self.channel, message)
 
     def _start_schedules(self):
         for schedule in schedules.schedules:
@@ -123,16 +111,11 @@ class Bot(irc.bot.SingleServerIRCBot):
         users = self.user_data['chatters']
         session = self.db()
         for mod in users['moderators']:
-            print("Found mod {}".format(mod))
             user = db.find_or_make(session, db.User, name=mod)
             user.mod = True
-            print(user.__dict__)
-
         for viewer in users['viewers']:
-            print("Found viewer {}".format(viewer))
             user = db.find_or_make(session, db.User, name=viewer)
             user.mod = False
-        print("Committing")
         session.commit()
 
 @every(60)
@@ -141,3 +124,7 @@ def update_users(connection):
     thread = threading.Thread(target = connection.get_users)
     thread.daemon = True
     thread.start()
+
+@every(1)
+def chat(connection):
+    connection._process_chat_queue()

@@ -3,10 +3,6 @@ class Schedule:
         self.delay = delay
         self.function = function
 
-    def run(self, timer, connection):
-        self.function(connection)
-        timer.enter(self.delay, 0, self.run, [timer, connection])
-
 schedules = []
 
 def every(delay):
