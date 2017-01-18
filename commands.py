@@ -21,7 +21,7 @@ def mod_only(func):
 def help(connection, event, body):
     '''Lists commands and usage'''
     if not body:
-        choices = sorted(commands.keys(), reverse=True)
+        choices = sorted(commands.keys())
     else:
         choices = body.split()
 
