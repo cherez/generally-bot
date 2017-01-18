@@ -59,7 +59,9 @@ class Bot(irc.bot.SingleServerIRCBot):
 
         function = self.find_command(cmd)
         try:
-            function(self, event, body)
+            message = function(self, event, body)
+            if message:
+                self.say(message)
         except:
             self.say("Error! Yell at Break to fix it!")
             print(traceback.format_exc())
@@ -93,3 +95,15 @@ class Bot(irc.bot.SingleServerIRCBot):
             return missing
         return function
 
+
+    def get_users(self):
+        channel = self.channel[1:] #strip the leading # from the IRC channel
+        url = 'http://tmi.twitch.tv/group/user/{}/chatters'.format(channel)
+        try:
+            r = requests.get(url)
+            self.user_data = r.json()
+            return self.user_data['chatters']
+        except ValueError:
+            return None
+        except TypeError:
+            return None

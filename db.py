@@ -59,9 +59,9 @@ def find(session, table, **values):
 
 def remove(session, table, **values):
     try:
-        session.query(table).filter_by(**values).delete()
+        count = session.query(table).filter_by(**values).delete()
         session.commit()
-        return True
+        return count
     except IntegrityError:
         session.rollback()
         return False

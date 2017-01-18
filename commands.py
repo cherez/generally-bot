@@ -25,49 +25,75 @@ def help(connection, event, body):
 
 @command
 def add(connection, event, body):
+    '''Creates a value.'''
     args = body.split(maxsplit = 1)
     if len(args) < 2:
-        connection.say('Usage: !add [list] [value]')
-        return
+        return 'Usage: !add [type] [value]'
     target = args[0]
     body = args[1]
     session = connection.db()
     if target in ['list', 'dict']:
         if len(body.split()) > 1:
-            connection.say('Usage: !add {} [single word list name]'.format(target))
-            return
+            return 'Usage: !add {} [single word list name]'.format(target)
         lists = db.find(session, db.List, name=body).all()
         dicts = db.find(session, db.Dict, name=body).all()
         if lists or dicts:
-            connection.say("{} {} already exists.".format((lists+dicts)[0].__class__.__name__, body))
-            return
+            return "{} {} already exists.".format((lists+dicts)[0].__class__.__name__, body)
         type = db.List if target=='list' else db.Dict
-        if db.add(session, type, name = body):
-            connection.say('Added {} {}'.format(target, body))
-        return
+        db.add(session, type, name = body)
+        return 'Added {} {}'.format(target, body)
 
     lists = db.find(session, db.List, name=target).all()
     dicts = db.find(session, db.Dict, name=target).all()
 
     if lists:
         if db.add(session, db.ListItem, list=target, value = body):
-            connection.say('Added ' + body + ' to ' + target)
-        else:
-            connection.say(body + ' is already in ' + target + '.')
-        return
+            return 'Added ' + body + ' to ' + target
+        return body + ' is already in ' + target + '.'
 
     if dicts:
         if len(body.split()) < 2:
-            connection.say('Usage: !add " {} [key] [value]'.format(target))
-            return
+            return 'Usage: !add " {} [key] [value]'.format(target)
         name, value = body.split(maxsplit = 1)
         if db.add(session, db.DictItem, dict = target, name = name, value = value):
-            connection.say('Added ' + name + ' to ' + target)
+            return 'Added ' + name + ' to ' + target
         else:
             db.find(session, db.DictItem, dict=target, name=name) \
                 .update({db.DictItem.value: value})
             session.commit()
-            connection.say("{} updated to {}".format(name, value))
-        return
-    connection.say("I don't know what a " + target + " is.")
+            return "{} updated to {}".format(name, value)
+    return "I don't know what a " + target + " is."
+
+@command
+def remove(connection, event, body):
+    '''Deletes a value.'''
+    args = body.split(maxsplit = 1)
+    if len(args) < 2:
+        return 'Usage: !remove [type] [value]'
+    target = args[0]
+    body = args[1]
+    session = connection.db()
+    if target == 'list':
+        if not db.remove(session, db.List, name=body):
+            return "List {} does not exist.".format(body)
+        return "Removed list {}.".format(target)
+
+    if target == 'dict':
+        if not db.remove(session, db.Dict, name=body):
+            return "Dict {} does not exist.".format(body)
+        return "Removed dict {}.".format(target)
+
+    lists = db.find(session, db.List, name=target).all()
+    dicts = db.find(session, db.Dict, name=target).all()
+
+    if lists:
+        if not db.remove(session, db.ListItem, list=target, value=body):
+            return "{} not in {}.".format(body, target)
+        return "Removed {} from {}.".format(body, target)
+
+    if dicts:
+        if not db.remove(session, db.DictItem, dict=target, key=body):
+            return "{} not in {}.".format(body, target)
+        return "Removed {} from {}.".format(body, target)
+    return "I don't know what a " + target + " is."
 
