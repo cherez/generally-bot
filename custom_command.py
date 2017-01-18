@@ -11,7 +11,6 @@ def find(connection, name):
         return None
     message = result[0].value
     def reader(connection, event, body):
-        print(result[0])
         connection.say(read(session, message))
     return reader
 

@@ -73,7 +73,7 @@ class Bot(irc.bot.SingleServerIRCBot):
         If there are messages in the chat queue that need
         to be sent, pop off the oldest one and pass it
         to the ts.send_message function. Then sleep for
-        half a second to stay below the twitch rate limit.
+        a second to stay below the twitch rate limit.
         """
         while True:
             if len(chat_queue) > 0:

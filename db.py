@@ -2,6 +2,7 @@ import sqlalchemy
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.schema import UniqueConstraint
+from sqlalchemy.exc import IntegrityError
 
 Base = declarative_base()
 
@@ -43,3 +44,24 @@ def init(path):
     session_factory = sessionmaker(bind=engine)
     Base.metadata.create_all(engine)
     return session_factory
+
+def add(session, table, **values):
+    try:
+        session.add(table(**values))
+        session.commit()
+        return True
+    except IntegrityError:
+        session.rollback()
+        return False
+
+def find(session, table, **values):
+    return session.query(table).filter_by(**values)
+
+def remove(session, table, **values):
+    try:
+        session.query(table).filter_by(**values).delete()
+        session.commit()
+        return True
+    except IntegrityError:
+        session.rollback()
+        return False

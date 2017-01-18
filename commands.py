@@ -1,6 +1,5 @@
 commands = {}
 import db
-from sqlalchemy.exc import IntegrityError
 
 def command(func):
     commands[func.__name__] = func
@@ -33,63 +32,42 @@ def add(connection, event, body):
     target = args[0]
     body = args[1]
     session = connection.db()
-    if target == 'list':
+    if target in ['list', 'dict']:
         if len(body.split()) > 1:
-            connection.say('Usage: !add list [single word list name]')
+            connection.say('Usage: !add {} [single word list name]'.format(target))
             return
-        lists = session.query(db.List).filter(db.List.name == body).all()
-        dicts = session.query(db.Dict).filter(db.Dict.name == body).all()
+        lists = db.find(session, db.List, name=body).all()
+        dicts = db.find(session, db.Dict, name=body).all()
         if lists or dicts:
-            connection.say(body + "already exists.")
+            connection.say("{} {} already exists.".format((lists+dicts)[0].__class__.__name__, body))
             return
-        if add(session, db.List, name = body):
-            connection.say('Added List ' + body)
+        type = db.List if target=='list' else db.Dict
+        if db.add(session, type, name = body):
+            connection.say('Added {} {}'.format(target, body))
         return
 
-    if target == 'dict':
-        if len(body.split()) > 1:
-            connection.say('Usage: !add dict [single word dict name]')
-            return
-        lists = session.query(db.List).filter(db.List.name == body).all()
-        dicts = session.query(db.Dict).filter(db.Dict.name == body).all()
-        if lists or dicts:
-            connection.say(body + "already exists.")
-            return
-        if add(session, db.Dict, name = body):
-            connection.say('Added Dict ' + body)
-        else:
-            connection.say('Dict ' + body + ' already exists.')
-        return
+    lists = db.find(session, db.List, name=target).all()
+    dicts = db.find(session, db.Dict, name=target).all()
 
-    lists = session.query(db.List).filter(db.List.name == target).all()
-    dicts = session.query(db.Dict).filter(db.Dict.name == target).all()
-
-    print(lists)
     if lists:
-        if add(session, db.ListItem, list=target, value = body):
+        if db.add(session, db.ListItem, list=target, value = body):
             connection.say('Added ' + body + ' to ' + target)
         else:
             connection.say(body + ' is already in ' + target + '.')
         return
 
-    print(dicts)
     if dicts:
         if len(body.split()) < 2:
             connection.say('Usage: !add " {} [key] [value]'.format(target))
             return
         name, value = body.split(maxsplit = 1)
-        if add(session, db.DictItem, dict = target, name = name, value = value):
+        if db.add(session, db.DictItem, dict = target, name = name, value = value):
             connection.say('Added ' + name + ' to ' + target)
         else:
-            connection.say(name + 'already exists in ' + target)
+            db.find(session, db.DictItem, dict=target, name=name) \
+                .update({db.DictItem.value: value})
+            session.commit()
+            connection.say("{} updated to {}".format(name, value))
         return
     connection.say("I don't know what a " + target + " is.")
 
-
-def add(session, table, **values):
-    try:
-        session.add(table(**values))
-        session.commit()
-        return True
-    except IntegrityError:
-        return False
