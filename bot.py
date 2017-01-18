@@ -12,6 +12,7 @@ import custom_command
 import schedules
 from schedules import every
 import requests
+import modules
 
 class Bot(irc.bot.SingleServerIRCBot):
     def __init__(self, config):
@@ -71,7 +72,7 @@ class Bot(irc.bot.SingleServerIRCBot):
 
     def _process_chat_queue(self):
         if len(self.chat_queue) > 0:
-            message = self.chat_queue.pop()
+            message = self.chat_queue.popleft()
             print("Sending " + message)
             self.connection.privmsg(self.channel, message)
 
@@ -81,7 +82,7 @@ class Bot(irc.bot.SingleServerIRCBot):
             self.reactor.execute_at(0, schedule.function, [self])
 
     def find_command(self, command):
-        function = commands.commands.get(command)
+        function = commands.commands.get(command.replace('-', '_'))
         if not function:
             function = custom_command.find(self, command)
         if not function:
