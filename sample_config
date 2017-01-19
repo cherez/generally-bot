@@ -1,0 +1,8 @@
+#copy this file as config and customize to your needs
+name: GenerallyBot #Twitch account name of your bot
+pass: oauth:blablabla #oauth token for your bot; get it at http://twitchapps.com/tmi/
+chan: "#order1" #whatever twitch stream you want the bot on
+
+#probably no reason to change these unless you know what you're doing
+port: 6667
+server: irc.twitch.tv
