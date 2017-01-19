@@ -11,7 +11,7 @@ Base = declarative_base()
 class User(Base):
     __tablename__ = 'USERS'
     id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    name = sqlalchemy.Column(sqlalchemy.String, nullable=False)
+    name = sqlalchemy.Column(sqlalchemy.String, index=True, nullable=False)
     mod = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
 
 class List(Base):
@@ -41,7 +41,7 @@ class DictItem(Base):
 
 
 def init(path):
-    engine = sqlalchemy.create_engine('sqlite:///{}.sqlite'.format(path))
+    engine = sqlalchemy.create_engine('sqlite:///{}.sqlite'.format(path), connect_args={'check_same_thread':False})
     session_factory = sessionmaker(bind=engine)
     Base.metadata.create_all(engine)
     return session_factory
