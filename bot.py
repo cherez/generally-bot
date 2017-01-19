@@ -98,7 +98,7 @@ class Bot(irc.bot.SingleServerIRCBot):
         try:
             r = requests.get(url)
             data = r.json()
-            if data: #sometimes this just fails :/
+            if data: #sometimes this just returns None :/
                 self.user_data = r.json()
                 #toss this in the reactor to keep DB stuff in the main thread
                 self.reactor.execute_at(0, self.update_users)
@@ -121,7 +121,7 @@ class Bot(irc.bot.SingleServerIRCBot):
 
 @every(60)
 def update_users(connection):
-    #background this to not block
+    #background this to not block the reactor
     thread = threading.Thread(target = connection.get_users)
     thread.daemon = True
     thread.start()
