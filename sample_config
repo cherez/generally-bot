@@ -6,3 +6,6 @@ chan: "#order1" #whatever twitch stream you want the bot on
 #probably no reason to change these unless you know what you're doing
 port: 6667
 server: irc.twitch.tv
+
+#set to true to get extra debug output
+debug: false
