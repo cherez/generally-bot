@@ -1,6 +1,6 @@
 import irc.bot
 import irc.strings
-from irc.client import ip_numstr_to_quad, ip_quad_to_numstr
+from irc.client import ip_numstr_to_quad, ip_quad_to_numstr, Event
 import ssl
 import commands
 import db
@@ -13,19 +13,23 @@ import schedules
 from schedules import every
 import requests
 import modules
+import handlers
 
 class Bot(irc.bot.SingleServerIRCBot):
     def __init__(self, config):
         self.config = config
         self.channel = config['chan']
-        nick = config['name']
+        self.nick = config['name']
         password = config['pass']
         server = config['server']
         port = config['port']
         server = [(server, port, password)]
         self.db = db.init(self.channel)
-        irc.bot.SingleServerIRCBot.__init__(self, server, nick, nick)
+        irc.bot.SingleServerIRCBot.__init__(self, server, self.nick, self.nick)
         self.chat_queue = collections.deque()
+        for type, funcs in handlers.handlers.items():
+            for func in funcs:
+                self.reactor.add_global_handler(type, func, 0)
 
     def on_welcome(self, c, e):
         print('Welcomed! Joining ' + self.channel)
@@ -75,6 +79,8 @@ class Bot(irc.bot.SingleServerIRCBot):
             message = self.chat_queue.popleft()
             print("Sending " + message)
             self.connection.privmsg(self.channel, message)
+            event = Event('say', self.nick, self.channel, [message])
+            self.reactor._handle_event(self, event)
 
     def _start_schedules(self):
         for schedule in schedules.schedules:
@@ -108,7 +114,6 @@ class Bot(irc.bot.SingleServerIRCBot):
             return None
 
     def update_users(self):
-        print("Updating users")
         users = self.user_data['chatters']
         session = self.db()
         for mod in users['moderators']:
