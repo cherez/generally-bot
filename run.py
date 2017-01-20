@@ -1,11 +1,10 @@
 #! /usr/bin/env python3
 
-import yaml
 import bot
 
 if __name__ == '__main__':
     import logging
-    config = yaml.load(open('config'))
+    from config import config
     if(config.get('debug')):
         logging.basicConfig()
         logging.getLogger('sqlalchemy.engine').setLevel(logging.INFO)
