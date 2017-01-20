@@ -25,7 +25,10 @@ class Bot(irc.bot.SingleServerIRCBot):
         port = config['port']
         server = [(server, port, password)]
         self.db = db.init(self.channel)
-        irc.bot.SingleServerIRCBot.__init__(self, server, self.nick, self.nick)
+        ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
+        irc.bot.SingleServerIRCBot.__init__(self, server, \
+                self.nick, self.nick, \
+                connect_factory=ssl_factory)
         self.chat_queue = collections.deque()
         for type, funcs in handlers.handlers.items():
             for func in funcs:

@@ -4,8 +4,8 @@ pass: oauth:blablabla #oauth token for your bot; get it at http://twitchapps.com
 chan: "#order1" #whatever twitch stream you want the bot on
 
 #probably no reason to change these unless you know what you're doing
-port: 6667
-server: irc.twitch.tv
+port: 443
+server: irc.chat.twitch.tv
 
 #set to true to get extra debug output
 debug: false
