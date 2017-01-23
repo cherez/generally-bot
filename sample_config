@@ -9,3 +9,8 @@ server: irc.chat.twitch.tv
 
 #set to true to get extra debug output
 debug: false
+
+#greeter config
+#message to be sent once to each new user to come to the stream
+#leave this blank or omit to disable greetings
+greeting: "Welcome to the stream, {name}!"

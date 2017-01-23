@@ -119,12 +119,17 @@ class Bot(irc.bot.SingleServerIRCBot):
     def update_users(self):
         users = self.user_data['chatters']
         session = self.db()
-        for mod in users['moderators']:
-            user = db.find_or_make(session, db.User, name=mod)
-            user.mod = True
-        for viewer in users['viewers']:
-            user = db.find_or_make(session, db.User, name=viewer)
-            user.mod = False
+        new = []
+        for name in users['moderators'] + users['viewers']:
+            user = db.find_or_make(session, db.User, name=name)
+            user.mod = name in users['moderators']
+            if(db.new(user)):
+                print("New user!: {}".format(name))
+                new.append(user)
+        if new:
+            event = Event('new-users', self.channel, self.channel, new)
+            self.reactor._handle_event(self, event)
+
         session.commit()
 
 @every(60)
@@ -134,6 +139,6 @@ def update_users(connection):
     thread.daemon = True
     thread.start()
 
-@every(1)
+@every(.5)
 def chat(connection):
     connection._process_chat_queue()

@@ -1,4 +1,5 @@
 import sqlalchemy
+from sqlalchemy import inspect
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship, sessionmaker
 from sqlalchemy.schema import UniqueConstraint
@@ -74,3 +75,7 @@ def remove(session, table, **values):
     except IntegrityError:
         session.rollback()
         return False
+
+def new(obj):
+    state = inspect(obj)
+    return state.pending
