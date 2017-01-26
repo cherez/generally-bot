@@ -1,6 +1,7 @@
 from commands import command, mod_only
 import db
 import re
+import random
 
 voting = False
 candidates = []
@@ -60,5 +61,6 @@ def end_vote(connection, event, body):
     connection.say("Voting has closed! Results:")
     for candidate in candidates:
         connection.say("{}: {}".format(candidate, results[candidate]))
-    winner = max(candidates, key=results.get)
+    #add a random value to the key to randomly select among ties
+    winner = max(candidates, key=lambda candidate: [results[candidate], random.random()])
     connection.say("Winner: {}!!!".format(winner))
