@@ -79,3 +79,15 @@ def remove(session, table, **values):
 def new(obj):
     state = inspect(obj)
     return state.pending
+
+def get(session, dict, name):
+    items = find(session, DictItem, dict=dict, name=name).all()
+    if not items:
+        return None
+    return items[0].value
+
+
+def put(session, dict, name, value):
+    item = find_or_make(session, DictItem, dict=dict, name=name)
+    item.value = value
+    session.commit()
