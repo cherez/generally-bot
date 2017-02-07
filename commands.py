@@ -3,7 +3,8 @@ import db
 from functools import wraps
 
 def command(func):
-    commands[func.__name__] = func
+    name = func.__name__.replace('_', '-')
+    commands[name] = func
     return func
 
 def mod_only(func):
@@ -16,23 +17,52 @@ def mod_only(func):
         return func(connection, event, body)
     return restricted
 
+def short(doc):
+    def wrapper(func):
+        func.short = doc
+        return func
+    return wrapper
+
+def long(doc):
+    def wrapper(func):
+        func.long = doc
+        return func
+    return wrapper
+
 
 @command
+@short('Lists commands and usage')
+@long('''!help
+        Lists all available commands with short descriptionrs
+        !help [command ...]
+        Gives detailed description of listed commands''')
 def help(connection, event, body):
-    '''Lists commands and usage'''
     if not body:
-        choices = sorted(commands.keys())
+        choices = sorted(commands.items())
+        for name, command in choices:
+            short_help(connection, name, command)
     else:
         choices = body.split()
 
-    for choice in choices:
-        if choice not in commands:
-            connection.say(choice + ' not found')
-            continue
-        command = commands[choice]
-        message = '{:20s} -- {}'.format(choice, command.__doc__)
+        for choice in choices:
+            if choice not in commands:
+                connection.say(choice + ' not found')
+                continue
+            command = commands[choice]
+            long_help(connection, choice, command)
 
+def short_help(connection, name, command):
+        doc = getattr(command, 'short', None) or getattr(command, '__doc__')
+        message = '{:20s} -- {}'.format(name, doc)
         connection.say(message)
+
+def long_help(connection, name, command):
+        doc = getattr(command, 'long', None)
+        if not doc:
+            return short_help(connection, name, command)
+        lines = doc.split('\n')
+        for message in lines:
+            connection.say(message)
 
 @command
 @mod_only

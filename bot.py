@@ -91,7 +91,8 @@ class Bot(irc.bot.SingleServerIRCBot):
             self.reactor.execute_at(0, schedule.function, [self])
 
     def find_command(self, command):
-        function = commands.commands.get(command.replace('-', '_'))
+        command = command.replace('_', '-').lower()
+        function = commands.commands.get(command)
         if not function:
             function = custom_command.find(self, command)
         if not function:
