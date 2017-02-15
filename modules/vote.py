@@ -1,4 +1,4 @@
-from commands import command, mod_only
+from commands import command, mod_only, short, long
 import db
 import re
 import random
@@ -10,6 +10,11 @@ num_pattern = re.compile("\d+")
 
 @command
 @mod_only
+@short("Starts a new election")
+@long("""!start-vote list
+        Starts an election over the given list.
+        !start-vote item1;item2;...
+        Starts an election ove the listed items""")
 def start_vote(connection, event, body):
     global candidates, voting, ballots
     if not body:
@@ -30,6 +35,7 @@ def start_vote(connection, event, body):
     connection.say("To vote: !vote [index] [index] ...")
 
 @command
+@short("Lists the candidates of the current election.")
 def vote_options(connection, event, body):
     if not voting:
         return "There is not currently a vote."
@@ -39,6 +45,10 @@ def vote_options(connection, event, body):
     connection.say(options)
 
 @command
+@short("Casts a vote")
+@long("""!vote [number ...]
+        Casts a vote for each numbered candidate.
+        Further votes will replace previous votes.""")
 def vote(connection, event, body):
     if not voting:
         return "There is not currently a vote."
@@ -50,6 +60,7 @@ def vote(connection, event, body):
 
 @command
 @mod_only
+@short("Ends the current election and prints results and winner.")
 def end_vote(connection, event, body):
     global voting
     voting = False
