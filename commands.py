@@ -15,6 +15,9 @@ def mod_only(func):
         if not db.find(session, db.User, name=nick, mod=True).all():
             return "{} must be a mod to do that.".format(nick)
         return func(connection, event, body)
+    if hasattr(restricted, 'long'):
+        restricted.long = "MOD ONLY!\n" + restricted.long
+    restricted.mod_only = True
     return restricted
 
 def short(doc):
@@ -33,13 +36,16 @@ def long(doc):
 @command
 @short('Lists commands and usage')
 @long('''!help
-        Lists all available commands with short descriptionrs
+        Lists all available commands available to users with short descriptions
         !help [command ...]
         Gives detailed description of listed commands''')
 def help(connection, event, body):
     if not body:
         choices = sorted(commands.items())
         for name, command in choices:
+            #skip all commands
+            if getattr(command, 'mod_only', False):
+                continue
             short_help(connection, name, command)
     else:
         choices = body.split()
@@ -50,6 +56,18 @@ def help(connection, event, body):
                 continue
             command = commands[choice]
             long_help(connection, choice, command)
+
+@command
+@short('Lists mod-only commands and usage')
+@long('''!help
+        Lists all mod commands
+        !help [command ...]
+        Gives detailed description of listed commands''')
+def mod_help(connection, event, body):
+    choices = sorted(commands.items())
+    for name, command in choices:
+            if getattr(command, 'mod_only', False):
+                short_help(connection, name, command)
 
 def short_help(connection, name, command):
         doc = getattr(command, 'short', None) or getattr(command, '__doc__')
@@ -66,8 +84,16 @@ def long_help(connection, name, command):
 
 @command
 @mod_only
+@short('Creates a value')
+@long('''!add list [name]
+        Creates a list with the given name
+        !add dict [name]
+        Creates a dictionary with the given name
+        !add [list-name] [value]
+        Adds the given value to a list
+        !add [dict-name] [key] [value]
+        Assigns the given value to the key in the dictionary''')
 def add(connection, event, body):
-    '''Creates a value.'''
     args = body.split(maxsplit = 1)
     if len(args) < 2:
         return 'Usage: !add [type] [value]'
