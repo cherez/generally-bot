@@ -1,7 +1,7 @@
 from config import config
 
 if 'riot_token' in config:
-    from commands import command, mod_only, short, long
+    from commands import command, mod_only, short, long, alias
     import db
     from template import render
     from schedules import every
@@ -17,10 +17,13 @@ if 'riot_token' in config:
             2: 'Normal Blind',
             14: 'Normal Draft',
             8: 'Normal Twisted Treeline',
+            318: 'ARURF',
+            325: 'ARSR',
             400: 'Normal Draft',
             420: 'Ranked Solo',
             440: 'Ranked Flex',
             600: 'Blood Moon',
+            610: 'Dark Star Singularity',
             65: 'ARAM'
             }
 
@@ -72,6 +75,8 @@ if 'riot_token' in config:
         return "Set League data template to " + body
 
 
+    @alias('elo')
+    @alias('ranking')
     @command
     @short("Prints current League ranks")
     def rank(connection, event, body):
@@ -92,4 +97,9 @@ if 'riot_token' in config:
             division = entry['entries'][0]['division']
             lp = entry['entries'][0]['leaguePoints']
             template = "{queue} {size}s: {tier} {division}, {lp} LP"
+            if 'miniSeries' in entry['entries'][0]:
+                series = entry['entries'][0]['miniSeries']
+                wins = series['wins']
+                losses = series['losses']
+                template += "; {wins}-{losses} in promos"
             connection.say(template.format(**locals()))
