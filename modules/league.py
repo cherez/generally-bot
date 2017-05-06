@@ -6,11 +6,10 @@ if 'riot_token' in config:
     from template import render
     from schedules import every
 
-    from riotwatcher import RiotWatcher
+    from league_api.client import Client
 
-    watcher = RiotWatcher(config['riot_token'])
-    champs = watcher.static_get_champion_list()['data']
-    champs_by_id = {champs[key]['id']: key for key in champs.keys()}
+    client = Client(config['riot_token'], 'na1')
+    champs = client.get_champion_list(dataById=True)
 
     queue_types = {
             0: 'Custom',
@@ -33,8 +32,8 @@ if 'riot_token' in config:
     def set_summoner(connection, event, body):
         session = connection.db()
         db.put(session, 'league', 'name', body)
-        summoner = watcher.get_summoner(name=body)
-        db.put(session, 'league', 'id', summoner['id'])
+        summoner = client.get_by_summoner_name(body)
+        db.put(session, 'league', 'id', summoner.id)
         return "Set Summon to " + body
 
     @every(60)
@@ -42,17 +41,17 @@ if 'riot_token' in config:
         session = connection.db()
         id = db.get(session, 'league', 'id')
         try:
-            game = watcher.get_current_game(id)
+            game = client.get_current_game_info_by_summoner(id)
         except:
             db.put(session, 'league', 'champion', '')
             db.put(session, 'league', 'mode', '')
             db.put(session, 'league', 'data', '')
             return #no game right now
-        participants = game['participants']
-        me = [i for i in participants if str(i['summonerId']) == id][0]
-        champ = champs_by_id[me['championId']]
-        db.put(session, 'league', 'champion', champ)
-        queue = game.get('gameQueueConfigId', 0) #missing on custom games
+        participants = game.participants
+        me = [i for i in participants if str(i.summoner_id) == id][0]
+        champ = champs[me.champion_id]
+        db.put(session, 'league', 'champion', champ.name)
+        queue = getattr(game, 'gameQueueConfigId', 0) #missing on custom games
         mode = queue_types.get(queue, 'Game')
         db.put(session, 'league', 'mode', mode)
         set_data(session)
@@ -82,24 +81,19 @@ if 'riot_token' in config:
     def rank(connection, event, body):
         session = connection.db()
         id = db.get(session, 'league', 'id')
-        try:
-            #there should be exactly one result since we send exactly one id
-            league_entries = watcher.get_league_entry([id])[id]
-        except:
-            raise
-            return "No rank found."
+        league_entries = client.get_all_league_positions_for_summoner(id)
         #this is a list of each rank type
         for entry in league_entries:
-            ranked, queue, size = entry['queue'].split('_')
+            ranked, queue, size = entry.queue_type.split('_')
             queue = queue.title()
             size = size[0]
-            tier = entry['tier'].title()
-            division = entry['entries'][0]['division']
-            lp = entry['entries'][0]['leaguePoints']
+            tier = entry.tier.title()
+            division = entry.rank
+            lp = entry.league_points
             template = "{queue} {size}s: {tier} {division}, {lp} LP"
-            if 'miniSeries' in entry['entries'][0]:
-                series = entry['entries'][0]['miniSeries']
-                wins = series['wins']
-                losses = series['losses']
+            if entry.miniSeries:
+                series = entry.mini_series
+                wins = series.wins
+                losses = series.losses
                 template += "; {wins}-{losses} in promos"
             connection.say(template.format(**locals()))
