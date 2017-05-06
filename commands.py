@@ -1,4 +1,5 @@
 commands = {}
+aliases = {}
 import db
 from functools import wraps
 
@@ -20,6 +21,13 @@ def mod_only(func):
     restricted.mod_only = True
     return restricted
 
+def alias(*names):
+    def wrapper(func):
+        for name in names:
+            aliases[name] = func
+        return func
+    return wrapper
+
 def short(doc):
     def wrapper(func):
         func.short = doc
@@ -33,6 +41,7 @@ def long(doc):
     return wrapper
 
 
+@alias('commands')
 @command
 @short('Lists commands and usage')
 @long('''!help
@@ -47,6 +56,13 @@ def help(connection, event, body):
             if getattr(command, 'mod_only', False):
                 continue
             short_help(connection, name, command)
+
+        session = connection.db()
+        custom_commands = session.query(db.DictItem).filter(db.DictItem.dict == 'command').all()
+        names = sorted(command.name for command in custom_commands)
+        connection.say("Custom commands:")
+        for name in names:
+            connection.say("!" + name)
     else:
         choices = body.split()
 
@@ -71,7 +87,7 @@ def mod_help(connection, event, body):
 
 def short_help(connection, name, command):
         doc = getattr(command, 'short', None) or getattr(command, '__doc__')
-        message = '{:20s} -- {}'.format(name, doc)
+        message = '!{:20s} -- {}'.format(name, doc)
         connection.say(message)
 
 def long_help(connection, name, command):
@@ -161,7 +177,7 @@ def remove(connection, event, body):
         return "Removed {} from {}.".format(body, target)
 
     if dicts:
-        if not db.remove(session, db.DictItem, dict=target, key=body):
+        if not db.remove(session, db.DictItem, dict=target, name=body):
             return "{} not in {}.".format(body, target)
         return "Removed {} from {}.".format(body, target)
     return "I don't know what a " + target + " is."

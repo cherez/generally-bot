@@ -94,6 +94,8 @@ class Bot(irc.bot.SingleServerIRCBot):
         command = command.replace('_', '-').lower()
         function = commands.commands.get(command)
         if not function:
+            function = commands.aliases.get(command)
+        if not function:
             function = custom_command.find(self, command)
         if not function:
             def missing(connection, event, body):
