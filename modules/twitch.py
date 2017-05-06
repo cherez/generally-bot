@@ -15,6 +15,14 @@ if 'twitch_client' in config and 'twitch_token' in config:
             'Client-ID': config['twitch_client']
             }
 
+    def set_game(game):
+        url = "https://api.twitch.tv/kraken/channels/{}".format(channel_id)
+        params = {
+                'channel[game]': game,
+                'oauth_token': config['twitch_token']
+                }
+        r = requests.put(url, params=params, headers=headers)
+
 
     def set_title(title):
         url = "https://api.twitch.tv/kraken/channels/{}".format(channel_id)
@@ -58,5 +66,12 @@ if 'twitch_client' in config and 'twitch_token' in config:
         db.put(connection.db(), 'twitch', 'title', body)
         title = update_title(connection)
         return "Set title to: {}".format(title)
+
+    @command
+    @mod_only
+    @short("Sets Twitch game")
+    def game(connection, event, body):
+        set_game(body)
+        return "Set game to: {}".format(body)
 
     channel_id = get_channel_id()
