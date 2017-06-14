@@ -44,6 +44,13 @@ if 'twitch_client' in config and 'twitch_token' in config:
     def get_channel_id():
         return get_channel()['_id']
 
+    def get_stream():
+        url = "https://api.twitch.tv/kraken/streams/{}".format(channel_id)
+        params = {
+            'oauth_token': config['twitch_token']
+        }
+        r = requests.get(url, params=params, headers=headers)
+        return r.json().get('stream', None)
 
     @every(120)
     def update_title(connection):
