@@ -49,7 +49,7 @@ if 'riot_token' in config:
             return #no game right now
         participants = game.participants
         me = [i for i in participants if str(i.summoner_id) == id][0]
-        champ = champs[me.champion_id]
+        champ = champs.data[repr(me.champion_id)]
         db.put(session, 'league', 'champion', champ.name)
         queue = getattr(game, 'gameQueueConfigId', 0) #missing on custom games
         mode = queue_types.get(queue, 'Game')

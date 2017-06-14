@@ -7,6 +7,5 @@ greeting = config.get('greeting')
 if greeting:
     @handle('new-users')
     def greet(connection, event):
-        print("greeting")
         for user in event.arguments:
             connection.say(greeting.format(name=user.name))

@@ -26,9 +26,9 @@ class Bot(irc.bot.SingleServerIRCBot):
         server = [(server, port, password)]
         self.db = db.init(self.channel)
         ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
-        irc.bot.SingleServerIRCBot.__init__(self, server, \
-                self.nick, self.nick, \
-                connect_factory=ssl_factory)
+        irc.bot.SingleServerIRCBot.__init__(self, server,
+                                            self.nick, self.nick,
+                                            connect_factory=ssl_factory)
         self.chat_queue = collections.deque()
         for type, funcs in handlers.handlers.items():
             for func in funcs:
@@ -105,14 +105,14 @@ class Bot(irc.bot.SingleServerIRCBot):
 
 
     def get_users(self):
-        channel = self.channel[1:] #strip the leading # from the IRC channel
+        channel = self.channel[1:]  # strip the leading # from the IRC channel
         url = 'http://tmi.twitch.tv/group/user/{}/chatters'.format(channel)
         try:
             r = requests.get(url)
             data = r.json()
-            if data: #sometimes this just returns None :/
+            if data:  # sometimes this just returns None :/
                 self.user_data = r.json()
-                #toss this in the reactor to keep DB stuff in the main thread
+                # toss this in the reactor to keep DB stuff in the main thread
                 self.reactor.execute_at(0, self.update_users)
         except ValueError:
             return None
@@ -123,17 +123,20 @@ class Bot(irc.bot.SingleServerIRCBot):
         users = self.user_data['chatters']
         session = self.db()
         new = []
+        all_users = []
         for name in users['moderators'] + users['viewers']:
             user = db.find_or_make(session, db.User, name=name)
             user.mod = name in users['moderators']
-            if(db.new(user)):
+            all_users.append(user)
+            if db.new(user):
                 print("New user!: {}".format(name))
                 new.append(user)
+        session.commit()
         if new:
             event = Event('new-users', self.channel, self.channel, new)
             self.reactor._handle_event(self, event)
-
-        session.commit()
+        event = Event('users', self.channel, self.channel, all_users)
+        self.reactor._handle_event(self, event)
 
 @every(60)
 def update_users(connection):
