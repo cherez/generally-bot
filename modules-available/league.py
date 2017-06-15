@@ -10,6 +10,7 @@ if 'riot_token' in config:
 
     client = Client(config['riot_token'], 'na1')
     champs = client.get_champion_list(dataById=True)
+    current_game = None
 
     queue_types = {
             0: 'Custom',
@@ -38,6 +39,7 @@ if 'riot_token' in config:
 
     @every(60)
     def check_game(connection):
+        global current_game
         session = connection.db()
         id = db.get(session, 'league', 'id')
         try:
@@ -46,12 +48,23 @@ if 'riot_token' in config:
             db.put(session, 'league', 'champion', '')
             db.put(session, 'league', 'mode', '')
             db.put(session, 'league', 'data', '')
-            return #no game right now
+            session.commit()
+            if current_game is not None:
+                connection.handle_event('league-game-over', current_game)
+                current_game = None
+            return  # no game right now
+        if current_game is None:
+            current_game = game
+            connection.handle_event('league-game-start', current_game)
+        elif current_game.game_id != game.game_id:
+            connection.handle_event('league-game-over', current_game)
+            current_game = game
+            connection.handle_event('league-game-start', current_game)
         participants = game.participants
         me = [i for i in participants if str(i.summoner_id) == id][0]
         champ = champs.data[repr(me.champion_id)]
         db.put(session, 'league', 'champion', champ.name)
-        queue = getattr(game, 'gameQueueConfigId', 0) #missing on custom games
+        queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
         mode = queue_types.get(queue, 'Game')
         db.put(session, 'league', 'mode', mode)
         set_data(session)
@@ -82,7 +95,7 @@ if 'riot_token' in config:
         session = connection.db()
         id = db.get(session, 'league', 'id')
         league_entries = client.get_all_league_positions_for_summoner(id)
-        #this is a list of each rank type
+        # this is a list of each rank type
         for entry in league_entries:
             ranked, queue, size = entry.queue_type.split('_')
             queue = queue.title()

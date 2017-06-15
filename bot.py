@@ -138,6 +138,9 @@ class Bot(irc.bot.SingleServerIRCBot):
         event = Event('users', self.channel, self.channel, all_users)
         self.reactor._handle_event(self, event)
 
+    def handle_event(self, *event):
+        self.reactor._handle_event(self, event)
+
 @every(60)
 def update_users(connection):
     #background this to not block the reactor
