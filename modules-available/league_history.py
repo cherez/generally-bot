@@ -1,5 +1,4 @@
 from handlers import handle
-import modules.league
 import db
 
 @handle('league-game-end')
