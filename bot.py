@@ -1,3 +1,6 @@
+import asyncio
+
+import aiohttp
 import irc.bot
 import irc.strings
 from irc.client import ip_numstr_to_quad, ip_quad_to_numstr, Event
@@ -26,11 +29,14 @@ class Bot(irc.bot.SingleServerIRCBot):
         server = [(server, port, password)]
         self.db = db.init(self.channel)
         ssl_factory = irc.connection.Factory(wrapper=ssl.wrap_socket)
+        self.chat_queue = collections.deque()
+        self.start_loop()
         irc.bot.SingleServerIRCBot.__init__(self, server,
                                             self.nick, self.nick,
                                             connect_factory=ssl_factory)
-        self.chat_queue = collections.deque()
+        print('handling')
         for type, funcs in handlers.handlers.items():
+            print(type, funcs)
             for func in funcs:
                 self.reactor.add_global_handler(type, func, 0)
 
@@ -38,11 +44,13 @@ class Bot(irc.bot.SingleServerIRCBot):
         print('Welcomed! Joining ' + self.channel)
         c.join(self.channel)
         self._start_schedules()
+        self.handle_event(Event('bot-start', self.nick, self.channel))
 
     def on_privmsg(self, c, e):
         print('privmsg')
 
     def on_pubmsg(self, c, event):
+        print('pubmsg')
         command = event.arguments[0]
         self.do_command(event, command)
         return
@@ -138,8 +146,18 @@ class Bot(irc.bot.SingleServerIRCBot):
         event = Event('users', self.channel, self.channel, all_users)
         self.reactor._handle_event(self, event)
 
-    def handle_event(self, *event):
+    def handle_event(self, event, source = None, target = None, body = []):
+        if not isinstance(event, Event):
+            event = Event(event, source, target, body)
         self.reactor._handle_event(self, event)
+
+    def start_loop(self):
+        self.loop = asyncio.get_event_loop()
+        self.session = aiohttp.ClientSession(loop=self.loop)
+        thread = threading.Thread(target=self.loop.run_forever)
+        thread.daemon = True
+        thread.start()
+
 
 @every(60)
 def update_users(connection):
