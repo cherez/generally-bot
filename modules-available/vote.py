@@ -21,9 +21,9 @@ def start_vote(connection, event, body):
         return "Usage: !start-vote option1;option2;..."
     args = body.split(';')
     if len(args) == 1:
-        session = connection.db()
         name = args[0]
-        items = db.find(session, db.ListItem, list=name).all()
+        list = db.List.find(name=name)
+        items = db.ListItem.where(list=list)
         args = [item.value for item in items]
         if len(args) == 0:
             return "There is nothing in the {} list.".format(name)

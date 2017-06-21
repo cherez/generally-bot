@@ -3,13 +3,10 @@ from handlers import handle
 
 from config import config
 
-
 from commands import command, mod_only, short, long
 from schedules import every
 from template import render
 import db
-import requests
-import threading
 
 channel_id = None
 
@@ -17,6 +14,7 @@ headers = {
     'Accept': 'application/vnd.twitchtv.v5+json',
     'Client-ID': config['twitch_client']
 }
+
 
 async def set_game(connection, game):
     url = "https://api.twitch.tv/kraken/channels/{}".format(await channel_id)
@@ -45,27 +43,32 @@ async def get_channel(connection):
     async with connection.session.get(url, params=params, headers=headers) as r:
         print("async with")
         json = await r.json()
+        print(json)
         return json
 
+
 async def get_channel_id(connection):
-    print('getting channel id')
     return (await get_channel(connection))['_id']
+
 
 async def get_stream(connection):
     url = "https://api.twitch.tv/kraken/streams/{}".format(await channel_id)
     params = {
         'oauth_token': config['twitch_token']
     }
-    json = await connection.session.get(url, params=params, headers=headers).json()
-    return json.get('stream', None)
+    print("getting", url)
+    async with connection.session.get(url, params=params, headers=headers) as response:
+        json = await response.json()
+        print(json)
+        return json.get('stream', None)
+
 
 @every(120)
 def update_title(connection):
-    session = connection.db()
-    body = db.get(session, 'twitch', 'title')
+    body = db.get('twitch', 'title')
     if not body:
         return
-    text = render(session, body)
+    text = render(body)
     asyncio.run_coroutine_threadsafe(set_title(connection, text), connection.loop)
     return text
 
@@ -74,11 +77,12 @@ def update_title(connection):
 @mod_only
 @short("Sets Twitch channel title")
 def title(connection, event, body):
-    db.put(connection.db(), 'twitch', 'title', body)
+    db.put('twitch', 'title', body)
     title = update_title(connection)
     coro = set_title(connection, title)
     asyncio.run_coroutine_threadsafe(coro, connection.loop)
     return "Set title to: {}".format(title)
+
 
 @command
 @mod_only
@@ -88,8 +92,9 @@ def game(connection, event, body):
     asyncio.run_coroutine_threadsafe(coro, connection.loop)
     return "Set game to: {}".format(body)
 
+
 @handle("bot-start")
-def load_channel(connection, event):
+async def load_channel(connection, event):
     print('welcome')
     global channel_id
     channel_id = get_channel_id(connection)

@@ -6,46 +6,59 @@ from sqlalchemy.schema import UniqueConstraint
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound
 
-Base = declarative_base()
+from seaslug import *
+import config
 
 
-class User(Base):
-    __tablename__ = 'USERS'
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    name = sqlalchemy.Column(sqlalchemy.String, index=True, nullable=False)
-    mod = sqlalchemy.Column(sqlalchemy.Boolean, nullable=False)
+path = config.config['chan']
 
-class List(Base):
-    __tablename__ = 'LISTS'
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    name = sqlalchemy.Column(sqlalchemy.String, unique=True, nullable=False)
+db = Database()
 
-class Dict(Base):
-    __tablename__ = 'DICTS'
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    name = sqlalchemy.Column(sqlalchemy.String, unique=True, nullable=False)
+class User(db.Table):
+    name = StrColumn(length=32)
+    mod = BoolColumn()
+    indices = [
+        ['name']
+    ]
 
-class ListItem(Base):
-    __tablename__ = 'LIST_ITEMS'
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    list = sqlalchemy.Column(sqlalchemy.String, index=True, nullable=False)
-    value = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    __table_args__ = (UniqueConstraint('list', 'value', name='_list_value_uc'),)
 
-class DictItem(Base):
-    __tablename__ = 'DICT_ITEMS'
-    id = sqlalchemy.Column(sqlalchemy.Integer, primary_key=True)
-    dict = sqlalchemy.Column(sqlalchemy.String, index=True, nullable=False)
-    name = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    value = sqlalchemy.Column(sqlalchemy.String, nullable=False)
-    __table_args__ = (UniqueConstraint('dict', 'name', name='_dict_name_uc'),)
+class List(db.Table):
+    name = StrColumn(length=64)
+    entries = Belongs('ListItem', 'list')
+    indices = [
+        ['name']
+    ]
+
+
+class Dict(db.Table):
+    name = StrColumn(length=64)
+    entries = Belongs('DictItem', 'dict')
+    indices = [
+        ['name']
+    ]
+
+
+class ListItem(db.Table):
+    list = ForeignColumn('List')
+    value = StrBlobColumn()
+
+    indices = [
+        ['list', 'value']
+    ]
+
+
+class DictItem(db.Table):
+    dict = ForeignColumn('Dict')
+    name = StrColumn(length=64)
+    value = StrBlobColumn()
+    indices = [
+        ['dict', 'name']
+    ]
 
 
 def init(path):
-    engine = sqlalchemy.create_engine('sqlite:///{}.sqlite'.format(path), connect_args={'check_same_thread':False})
-    session_factory = sessionmaker(bind=engine)
-    Base.metadata.create_all(engine)
-    return session_factory
+    db.connect(path)
+
 
 def add(session, table, **values):
     try:
@@ -56,16 +69,19 @@ def add(session, table, **values):
         session.rollback()
         return False
 
+
 def find(session, table, **values):
     return session.query(table).filter_by(**values)
 
-def find_or_make(session, table, **values):
-    try:
-        return find(session, table, **values).one()
-    except NoResultFound:
-        result = table(**values)
-        session.add(result)
-        return result
+
+def find_or_make(table, **values):
+    row = table.find(**values)
+    if not row:
+        row = table.Row()
+        for key, value in values.items():
+            setattr(row, key, value)
+    return row
+
 
 def remove(session, table, **values):
     try:
@@ -76,18 +92,29 @@ def remove(session, table, **values):
         session.rollback()
         return False
 
+
 def new(obj):
     state = inspect(obj)
     return state.pending
 
-def get(session, dict, name):
-    items = find(session, DictItem, dict=dict, name=name).all()
-    if not items:
+
+def get(dict, name):
+    dict = Dict.find(name=dict)
+    item = DictItem.find(dict=dict, name=name)
+    if not item:
         return None
-    return items[0].value
+    return item.value
 
 
-def put(session, dict, name, value):
-    item = find_or_make(session, DictItem, dict=dict, name=name)
+def put(dict, name, value):
+    dict = Dict.find(name=dict)
+    item = find_or_make(DictItem, dict=dict, name=name)
     item.value = value
-    session.commit()
+    db.save()
+
+
+u = User
+l = List
+d = Dict
+li = ListItem
+di = DictItem

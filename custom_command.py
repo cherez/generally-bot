@@ -1,12 +1,16 @@
 import db
 from template import render
+from db import Dict, DictItem
+
 
 def find(connection, name):
-    session = connection.db()
-    result = session.query(db.DictItem).filter(db.DictItem.dict == 'command').filter(db.DictItem.name == name).all()
-    if not result:
+    dict = Dict.find(name='command')
+    item = DictItem.find(dict=dict, name=name)
+    if not item:
         return None
-    template = result[0].value
+    template = item.value
+
     def reader(connection, event, body):
-        connection.say(render(session, template))
+        connection.say(render(template))
+
     return reader

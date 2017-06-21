@@ -4,6 +4,7 @@ from commands import command, mod_only, short, long, alias
 import db
 from template import render
 from schedules import every
+from handlers import handle
 
 from league_api.client import Client
 
@@ -26,28 +27,27 @@ queue_types = {
     65: 'ARAM'
 }
 
+
 @command
 @mod_only
 @short("Sets the current summoner name")
 def set_summoner(connection, event, body):
-    session = connection.db()
-    db.put(session, 'league', 'name', body)
+    db.put('league', 'name', body)
     summoner = client.get_by_summoner_name(body)
-    db.put(session, 'league', 'id', summoner.id)
+    db.put('league', 'id', summoner.id)
     return "Set Summon to " + body
+
 
 @every(60)
 def check_game(connection):
     global current_game
-    session = connection.db()
-    id = db.get(session, 'league', 'id')
+    id = db.get('league', 'id')
     try:
         game = client.get_current_game_info_by_summoner(id)
     except:
-        db.put(session, 'league', 'champion', '')
-        db.put(session, 'league', 'mode', '')
-        db.put(session, 'league', 'data', '')
-        session.commit()
+        db.put('league', 'champion', '')
+        db.put('league', 'mode', '')
+        db.put('league', 'data', '')
         if current_game is not None:
             connection.handle_event('league-game-end', None, None, [current_game])
             current_game = None
@@ -62,26 +62,25 @@ def check_game(connection):
     participants = game.participants
     me = [i for i in participants if str(i.summoner_id) == id][0]
     champ = champs.data[repr(me.champion_id)]
-    db.put(session, 'league', 'champion', champ.name)
+    db.put('league', 'champion', champ.name)
     queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
     mode = queue_types.get(queue, 'Game')
-    db.put(session, 'league', 'mode', mode)
-    set_data(session)
-    session.commit()
+    db.put('league', 'mode', mode)
+    set_data()
 
-def set_data(session):
-    template = db.get(session, 'league', 'data-template')
-    text = render(session, template, 'league')
-    db.put(session, 'league', 'data', text)
+
+def set_data():
+    template = db.get('league', 'data-template')
+    text = render(template, 'league')
+    db.put('league', 'data', text)
+
 
 @command
 @mod_only
 @short("Formats how current game data should be displayed")
 def set_league_data_template(connection, event, body):
-    session = connection.db()
-    db.put(session, 'league', 'data-template', body)
-    set_data(session)
-    session.commit()
+    db.put('league', 'data-template', body)
+    set_data()
     check_game(connection)
     return "Set League data template to " + body
 
@@ -91,8 +90,7 @@ def set_league_data_template(connection, event, body):
 @command
 @short("Prints current League ranks")
 def rank(connection, event, body):
-    session = connection.db()
-    id = db.get(session, 'league', 'id')
+    id = db.get('league', 'id')
     league_entries = client.get_all_league_positions_for_summoner(id)
     # this is a list of each rank type
     for entry in league_entries:
@@ -109,3 +107,9 @@ def rank(connection, event, body):
             losses = series.losses
             template += "; {wins}-{losses} in promos"
         connection.say(template.format(**locals()))
+
+
+@handle("bot-start")
+def load_channel(connection, event):
+    global league_dict
+    league_dict = db.find_or_make(db.Dict, name='league')

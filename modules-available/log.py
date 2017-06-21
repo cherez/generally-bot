@@ -1,8 +1,9 @@
-from handlers import handle
-import logging, logging.handlers
+import logging.handlers
 import os
 import textwrap
 import time
+
+from handlers import handle
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)

@@ -129,17 +129,16 @@ class Bot(irc.bot.SingleServerIRCBot):
 
     def update_users(self):
         users = self.user_data['chatters']
-        session = self.db()
         new = []
         all_users = []
         for name in users['moderators'] + users['viewers']:
-            user = db.find_or_make(session, db.User, name=name)
+            user = db.find_or_make(db.User, name=name)
             user.mod = name in users['moderators']
             all_users.append(user)
-            if db.new(user):
+            if user._new:
                 print("New user!: {}".format(name))
                 new.append(user)
-        session.commit()
+        db.db.save()
         if new:
             event = Event('new-users', self.channel, self.channel, new)
             self.reactor._handle_event(self, event)

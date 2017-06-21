@@ -12,6 +12,7 @@ def handle(event):
         @functools.wraps(func)
         def wrapper(connection, *args):
             if asyncio.iscoroutinefunction(func):
+                print('calling async', func.__name__)
                 asyncio.run_coroutine_threadsafe(func(connection, *args), connection.loop)
             else:
                 func(connection, *args)
