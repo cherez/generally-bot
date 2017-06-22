@@ -8,8 +8,8 @@ from handlers import handle
 
 from league_api.client import Client
 
-client = Client(config['riot_token'], 'na1')
-champs = client.get_champion_list(dataById=True)
+client = None
+champs = None
 current_game = None
 
 queue_types = {
@@ -31,19 +31,19 @@ queue_types = {
 @command
 @mod_only
 @short("Sets the current summoner name")
-def set_summoner(connection, event, body):
+async def set_summoner(connection, event, body):
     db.put('league', 'name', body)
-    summoner = client.get_by_summoner_name(body)
+    summoner = await client.get_by_summoner_name(body)
     db.put('league', 'id', summoner.id)
     return "Set Summon to " + body
 
 
 @every(60)
-def check_game(connection):
+async def check_game(connection):
     global current_game
     id = db.get('league', 'id')
     try:
-        game = client.get_current_game_info_by_summoner(id)
+        game = await client.get_current_game_info_by_summoner(id)
     except:
         db.put('league', 'champion', '')
         db.put('league', 'mode', '')
@@ -61,7 +61,7 @@ def check_game(connection):
         connection.handle_event('league-game-start', None, None, [current_game])
     participants = game.participants
     me = [i for i in participants if str(i.summoner_id) == id][0]
-    champ = champs.data[repr(me.champion_id)]
+    champ = (await champs).data[repr(me.champion_id)]
     db.put('league', 'champion', champ.name)
     queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
     mode = queue_types.get(queue, 'Game')
@@ -78,10 +78,10 @@ def set_data():
 @command
 @mod_only
 @short("Formats how current game data should be displayed")
-def set_league_data_template(connection, event, body):
+async def set_league_data_template(connection, event, body):
     db.put('league', 'data-template', body)
     set_data()
-    check_game(connection)
+    await check_game(connection)
     return "Set League data template to " + body
 
 
@@ -89,9 +89,9 @@ def set_league_data_template(connection, event, body):
 @alias('ranking')
 @command
 @short("Prints current League ranks")
-def rank(connection, event, body):
+async def rank(connection, event, body):
     id = db.get('league', 'id')
-    league_entries = client.get_all_league_positions_for_summoner(id)
+    league_entries = await client.get_all_league_positions_for_summoner(id)
     # this is a list of each rank type
     for entry in league_entries:
         ranked, queue, size = entry.queue_type.split('_')
@@ -111,5 +111,7 @@ def rank(connection, event, body):
 
 @handle("bot-start")
 def load_channel(connection, event):
-    global league_dict
+    global league_dict, client, champs
     league_dict = db.find_or_make(db.Dict, name='league')
+    client = Client(config['riot_token'], 'na1', connection.session)
+    champs = client.get_champion_list(dataById=True)

@@ -1,4 +1,5 @@
 import asyncio
+from asyncio import wait_for
 from handlers import handle
 
 from config import config
@@ -17,7 +18,7 @@ headers = {
 
 
 async def set_game(connection, game):
-    url = "https://api.twitch.tv/kraken/channels/{}".format(await channel_id)
+    url = "https://api.twitch.tv/kraken/channels/{}".format(await wait_for(channel_id, None))
     params = {
         'channel[game]': game,
         'oauth_token': config['twitch_token']
@@ -26,7 +27,7 @@ async def set_game(connection, game):
 
 
 async def set_title(connection, title):
-    url = "https://api.twitch.tv/kraken/channels/{}".format(await channel_id)
+    url = "https://api.twitch.tv/kraken/channels/{}".format(await wait_for(channel_id, None))
     params = {
         'channel[status]': title,
         'oauth_token': config['twitch_token']
@@ -52,7 +53,7 @@ async def get_channel_id(connection):
 
 
 async def get_stream(connection):
-    url = "https://api.twitch.tv/kraken/streams/{}".format(await channel_id)
+    url = "https://api.twitch.tv/kraken/streams/{}".format(await wait_for(channel_id, None))
     params = {
         'oauth_token': config['twitch_token']
     }
@@ -64,32 +65,28 @@ async def get_stream(connection):
 
 
 @every(120)
-def update_title(connection):
+async def update_title(connection):
     body = db.get('twitch', 'title')
     if not body:
         return
     text = render(body)
-    asyncio.run_coroutine_threadsafe(set_title(connection, text), connection.loop)
-    return text
+    await set_title(connection, text)
 
 
 @command
 @mod_only
 @short("Sets Twitch channel title")
-def title(connection, event, body):
+async def title(connection, event, body):
     db.put('twitch', 'title', body)
-    title = update_title(connection)
-    coro = set_title(connection, title)
-    asyncio.run_coroutine_threadsafe(coro, connection.loop)
-    return "Set title to: {}".format(title)
+    await update_title(connection)
+    return "Set title to: {}".format(render(title))
 
 
 @command
 @mod_only
 @short("Sets Twitch game")
-def game(connection, event, body):
-    coro = set_game(connection, body)
-    asyncio.run_coroutine_threadsafe(coro, connection.loop)
+async def game(connection, event, body):
+    await set_game(connection, body)
     return "Set game to: {}".format(body)
 
 
@@ -97,4 +94,4 @@ def game(connection, event, body):
 async def load_channel(connection, event):
     print('welcome')
     global channel_id
-    channel_id = get_channel_id(connection)
+    channel_id = asyncio.ensure_future(get_channel_id(connection))

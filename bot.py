@@ -18,6 +18,7 @@ import requests
 import modules
 import handlers
 
+
 class Bot(irc.bot.SingleServerIRCBot):
     def __init__(self, config):
         self.config = config
@@ -73,13 +74,7 @@ class Bot(irc.bot.SingleServerIRCBot):
             body = ''
 
         function = self.find_command(cmd)
-        try:
-            message = function(self, event, body)
-            if message:
-                self.say(message)
-        except:
-            self.say("Error! Yell at Break to fix it!")
-            print(traceback.format_exc())
+        self.run_action(function(self, event, body))
 
     def say(self, message):
         print("Saying " + message)
@@ -108,20 +103,19 @@ class Bot(irc.bot.SingleServerIRCBot):
         if not function:
             def missing(connection, event, body):
                 connection.say("Command {} not found.".format(command))
+
             return missing
         return function
 
-
-    def get_users(self):
+    async def get_users(self):
         channel = self.channel[1:]  # strip the leading # from the IRC channel
         url = 'http://tmi.twitch.tv/group/user/{}/chatters'.format(channel)
         try:
-            r = requests.get(url)
-            data = r.json()
-            if data:  # sometimes this just returns None :/
-                self.user_data = r.json()
-                # toss this in the reactor to keep DB stuff in the main thread
-                self.reactor.execute_at(0, self.update_users)
+            async with self.session.get(url) as r:
+                data = await r.json()
+                if data:  # sometimes this just returns None :/
+                    self.user_data = data
+                    self.update_users()
         except ValueError:
             return None
         except TypeError:
@@ -145,7 +139,7 @@ class Bot(irc.bot.SingleServerIRCBot):
         event = Event('users', self.channel, self.channel, all_users)
         self.reactor._handle_event(self, event)
 
-    def handle_event(self, event, source = None, target = None, body = []):
+    def handle_event(self, event, source=None, target=None, body=[]):
         if not isinstance(event, Event):
             event = Event(event, source, target, body)
         self.reactor._handle_event(self, event)
@@ -157,13 +151,26 @@ class Bot(irc.bot.SingleServerIRCBot):
         thread.daemon = True
         thread.start()
 
+    def run_action(self, coro):
+        async def wrapper():
+            try:
+                if asyncio.iscoroutine(coro):
+                    message = await coro
+                else:
+                    message = coro
+                if message:
+                    self.say(message)
+            except:
+                traceback.print_exc()
+                self.say("Error in {} ! Yell at Break to fix it!".format(coro.__name__))
+
+        asyncio.run_coroutine_threadsafe(wrapper(), self.loop)
+
 
 @every(60)
 def update_users(connection):
-    #background this to not block the reactor
-    thread = threading.Thread(target = connection.get_users)
-    thread.daemon = True
-    thread.start()
+    connection.run_action(connection.get_users())
+
 
 @every(.5)
 def chat(connection):

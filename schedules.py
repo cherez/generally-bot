@@ -15,10 +15,7 @@ def every(delay):
     def inner(function):
         @functools.wraps(function)
         def wrapper(connection):
-            if asyncio.iscoroutinefunction(function):
-                return asyncio.run_coroutine_threadsafe(function(connection), connection.loop)
-            else:
-                return function(connection)
+            connection.run_action(function(connection))
         s = Schedule(delay, wrapper)
         schedules.append(s)
         return function
