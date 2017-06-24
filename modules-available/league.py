@@ -1,3 +1,5 @@
+import asyncio
+
 from config import config
 
 from commands import command, mod_only, short, long, alias
@@ -61,7 +63,7 @@ async def check_game(connection):
         connection.handle_event('league-game-start', None, None, [current_game])
     participants = game.participants
     me = [i for i in participants if str(i.summoner_id) == id][0]
-    champ = (await champs).data[repr(me.champion_id)]
+    champ = (await asyncio.wait_for(champs, None)).data[repr(me.champion_id)]
     db.put('league', 'champion', champ.name)
     queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
     mode = queue_types.get(queue, 'Game')
@@ -114,4 +116,4 @@ def load_channel(connection, event):
     global league_dict, client, champs
     league_dict = db.find_or_make(db.Dict, name='league')
     client = Client(config['riot_token'], 'na1', connection.session)
-    champs = client.get_champion_list(dataById=True)
+    champs = asyncio.ensure_future(client.get_champion_list(dataById=True))

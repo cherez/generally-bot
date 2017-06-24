@@ -35,9 +35,7 @@ class Bot(irc.bot.SingleServerIRCBot):
         irc.bot.SingleServerIRCBot.__init__(self, server,
                                             self.nick, self.nick,
                                             connect_factory=ssl_factory)
-        print('handling')
         for type, funcs in handlers.handlers.items():
-            print(type, funcs)
             for func in funcs:
                 self.reactor.add_global_handler(type, func, 0)
 
@@ -116,9 +114,8 @@ class Bot(irc.bot.SingleServerIRCBot):
                 if data:  # sometimes this just returns None :/
                     self.user_data = data
                     self.update_users()
-        except ValueError:
-            return None
-        except TypeError:
+        except aiohttp.ClientResponseError:
+            # Server sometimes fails; carry on
             return None
 
     def update_users(self):

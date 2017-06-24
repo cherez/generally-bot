@@ -42,7 +42,6 @@ async def get_channel(connection):
         'oauth_token': config['twitch_token']
     }
     async with connection.session.get(url, params=params, headers=headers) as r:
-        print("async with")
         json = await r.json()
         print(json)
         return json
@@ -57,10 +56,8 @@ async def get_stream(connection):
     params = {
         'oauth_token': config['twitch_token']
     }
-    print("getting", url)
     async with connection.session.get(url, params=params, headers=headers) as response:
         json = await response.json()
-        print(json)
         return json.get('stream', None)
 
 
@@ -92,6 +89,5 @@ async def game(connection, event, body):
 
 @handle("bot-start")
 async def load_channel(connection, event):
-    print('welcome')
     global channel_id
     channel_id = asyncio.ensure_future(get_channel_id(connection))

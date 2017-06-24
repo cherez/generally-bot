@@ -9,8 +9,10 @@ def handle(event):
     def inner(func):
         @functools.wraps(func)
         def wrapper(connection, *args):
-            connection.run_action(func(connection, *args))
-
+            if asyncio.iscoroutinefunction(func):
+                connection.run_action(func(connection, *args))
+            else:
+                func(connection, *args)
         handlers[event].add(wrapper)
         return func
 
