@@ -91,6 +91,9 @@ class Bot(irc.bot.SingleServerIRCBot):
             self.reactor.execute_every(schedule.delay, schedule.function, [self])
             self.reactor.execute_at(0, schedule.function, [self])
 
+        for task in schedules.background_tasks:
+            self.run_action(task(self))
+
     def find_command(self, command):
         command = command.replace('_', '-').lower()
         function = commands.commands.get(command)

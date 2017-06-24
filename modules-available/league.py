@@ -1,14 +1,14 @@
 import asyncio
 
-from config import config
+import aiohttp
 
-from commands import command, mod_only, short, long, alias
 import db
-from template import render
-from schedules import every
+from commands import command, mod_only, short, alias
+from config import config
 from handlers import handle
-
 from league_api.client import Client
+from schedules import background
+from template import render
 
 client = None
 champs = None
@@ -37,38 +37,54 @@ async def set_summoner(connection, event, body):
     db.put('league', 'name', body)
     summoner = await client.get_by_summoner_name(body)
     db.put('league', 'id', summoner.id)
-    return "Set Summon to " + body
+    return "Set Summoner to " + body
 
 
-@every(60)
+@background
 async def check_game(connection):
     global current_game
+    await asyncio.wait_for(champs, None)
     id = db.get('league', 'id')
-    try:
-        game = await client.get_current_game_info_by_summoner(id)
-    except:
+    game = await get_current_game(id)
+    while True:
+        while game is None:
+            await asyncio.sleep(60)
+            game = await get_current_game(id)
+
+        current_game = game
+
+        participants = game.participants
+        me = [i for i in participants if str(i.summoner_id) == id][0]
+        champ = champs.result().data[repr(me.champion_id)]
+        queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
+        mode = queue_types.get(queue, 'Game')  # Sane default when dealing with unknown game modes.
+
+        db.put('league', 'champion', champ.name)
+        db.put('league', 'mode', mode)
+        set_data()
+
+        connection.handle_event('league-game-start', None, None, [current_game])
+
+        while game is not None and game.game_id == current_game.game_id:
+            await asyncio.sleep(60)
+            game = await get_current_game(id)
+
+        # TODO: throw this in a task that waits for the game results to hit the API
+        connection.handle_event('league-game-end', None, None, [current_game])
+
+        current_game = game
+
         db.put('league', 'champion', '')
         db.put('league', 'mode', '')
         db.put('league', 'data', '')
-        if current_game is not None:
-            connection.handle_event('league-game-end', None, None, [current_game])
-            current_game = None
-        return  # no game right now
-    if current_game is None:
-        current_game = game
-        connection.handle_event('league-game-start', None, None, [current_game])
-    elif current_game.game_id != game.game_id:
-        connection.handle_event('league-game-end', None, None, [current_game])
-        current_game = game
-        connection.handle_event('league-game-start', None, None, [current_game])
-    participants = game.participants
-    me = [i for i in participants if str(i.summoner_id) == id][0]
-    champ = (await asyncio.wait_for(champs, None)).data[repr(me.champion_id)]
-    db.put('league', 'champion', champ.name)
-    queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
-    mode = queue_types.get(queue, 'Game')
-    db.put('league', 'mode', mode)
-    set_data()
+        set_data()
+
+
+async def get_current_game(id):
+    try:
+        return await client.get_current_game_info_by_summoner(id)
+    except aiohttp.ClientError:
+        return None
 
 
 def set_data():

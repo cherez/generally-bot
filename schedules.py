@@ -9,6 +9,7 @@ class Schedule:
 
 
 schedules = []
+background_tasks = []
 
 
 def every(delay):
@@ -16,8 +17,14 @@ def every(delay):
         @functools.wraps(function)
         def wrapper(connection):
             connection.run_action(function(connection))
+
         s = Schedule(delay, wrapper)
         schedules.append(s)
         return function
 
     return inner
+
+
+def background(coroutine):
+    background_tasks.append(coroutine)
+    return coroutine
