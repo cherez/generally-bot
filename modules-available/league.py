@@ -77,7 +77,6 @@ async def check_game(connection):
         db.put('league', 'champion', '')
         db.put('league', 'mode', '')
         db.put('league', 'data', '')
-        set_data()
 
 
 async def get_current_game(id):

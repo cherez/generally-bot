@@ -139,7 +139,7 @@ def add(connection, event, body):
     list = List.find(name=target)
     
     if list:
-        db.find_or_make(ListItem, list=target, value=body)
+        db.find_or_make(ListItem, list=list, value=body)
         db.db.save()
         return 'Added ' + body + ' to ' + target
 

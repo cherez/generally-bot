@@ -43,7 +43,6 @@ async def get_channel(connection):
     }
     async with connection.session.get(url, params=params, headers=headers) as r:
         json = await r.json()
-        print(json)
         return json
 
 
@@ -76,7 +75,7 @@ async def update_title(connection):
 async def title(connection, event, body):
     db.put('twitch', 'title', body)
     await update_title(connection)
-    return "Set title to: {}".format(render(title))
+    return "Set title to: {}".format(render(body))
 
 
 @command

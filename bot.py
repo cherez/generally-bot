@@ -42,8 +42,9 @@ class Bot(irc.bot.SingleServerIRCBot):
     def on_welcome(self, c, e):
         print('Welcomed! Joining ' + self.channel)
         c.join(self.channel)
-        self._start_schedules()
+        # launch the start event before schedules to give modules a chance to initialize
         self.handle_event(Event('bot-start', self.nick, self.channel))
+        self._start_schedules()
 
     def on_privmsg(self, c, e):
         print('privmsg')
