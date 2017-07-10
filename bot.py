@@ -118,7 +118,7 @@ class Bot(irc.bot.SingleServerIRCBot):
                 if data:  # sometimes this just returns None :/
                     self.user_data = data
                     self.update_users()
-        except aiohttp.ClientResponseError:
+        except aiohttp.ClientError:
             # Server sometimes fails; carry on
             return None
 
