@@ -1,2 +1,2 @@
 import yaml
-config = yaml.load(open('config'))
+config = yaml.safe_load(open('config'))
