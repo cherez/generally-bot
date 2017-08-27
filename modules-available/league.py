@@ -36,7 +36,8 @@ queue_types = {
 async def set_summoner(connection, event, body):
     db.put('league', 'name', body)
     summoner = await client.get_by_summoner_name(body)
-    db.put('league', 'id', summoner.id)
+    db.put('league', 'id', str(summoner.id))
+    db.put('league', 'account_id', str(summoner.account_id))
     return "Set Summoner to " + body
 
 
