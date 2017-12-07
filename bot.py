@@ -89,8 +89,8 @@ class Bot(irc.bot.SingleServerIRCBot):
 
     def _start_schedules(self):
         for schedule in schedules.schedules:
-            self.reactor.execute_every(schedule.delay, schedule.function, [self])
-            self.reactor.execute_at(0, schedule.function, [self])
+            self.reactor.scheduler.execute_every(schedule.delay, lambda: schedule.function(self))
+            self.reactor.scheduler.execute_after(0, lambda: schedule.function(self))
 
         for task in schedules.background_tasks:
             self.run_action(task(self))
