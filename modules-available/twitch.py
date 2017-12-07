@@ -1,4 +1,5 @@
 import asyncio
+import urllib.parse
 from asyncio import wait_for
 from handlers import handle
 
@@ -58,6 +59,17 @@ async def get_stream(connection):
     async with connection.session.get(url, params=params, headers=headers) as response:
         json = await response.json()
         return json.get('stream', None)
+
+
+def get_auth_url(uri, scope=('openid',)):
+    url = "https://api.twitch.tv/kraken/oauth2/authorize?"
+    params = {
+        'redirect_uri': uri,
+        'client_id': config['twitch_client'],
+        'scope': ','.join(scope),
+    }
+    params = urllib.parse.urlencode(params)
+    return url + params + "&response_type=token+id_token"
 
 
 @every(120)
