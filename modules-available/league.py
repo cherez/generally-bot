@@ -16,17 +16,19 @@ current_game = None
 
 queue_types = {
     0: 'Custom',
-    2: 'Normal Blind',
+    1000: 'PROJECT: Overcharge',
     14: 'Normal Draft',
-    8: 'Normal Twisted Treeline',
+    2: 'Normal Blind',
     318: 'ARURF',
     325: 'ARSR',
     400: 'Normal Draft',
     420: 'Ranked Solo',
     440: 'Ranked Flex',
+    450: 'ARAM',
     600: 'Blood Moon',
     610: 'Dark Star Singularity',
-    65: 'ARAM'
+    65: 'ARAM',
+    8: 'Normal Twisted Treeline',
 }
 
 
@@ -66,14 +68,12 @@ async def check_game(connection):
 
         connection.handle_event('league-game-start', None, None, [current_game])
 
-        while game is not None and game.game_id == current_game.game_id:
+        while game is not None:
             await asyncio.sleep(60)
             game = await get_current_game(id)
 
-        # TODO: throw this in a task that waits for the game results to hit the API
-        connection.handle_event('league-game-end', None, None, [current_game])
-
-        current_game = game
+        asyncio.ensure_future(await_match(connection, current_game.game_id))
+        current_game = game = None
 
         db.put('league', 'champion', '')
         db.put('league', 'mode', '')
@@ -125,6 +125,22 @@ async def rank(connection, event, body):
             losses = series.losses
             template += "; {wins}-{losses} in promos"
         connection.say(template.format(**locals()))
+
+
+async def await_match(connection, match_id):
+    global current_game
+    while True:
+        try:
+            match = await client.get_match(match_id)
+            break
+        except aiohttp.ClientResponseError as e:
+            if e.code == 404:
+                await asyncio.sleep(60)
+                continue
+
+    if current_game and current_game.game_id == match.game_id:
+        current_game = None
+    connection.handle_event('league-game-end', None, None, [match])
 
 
 @handle("bot-start")
