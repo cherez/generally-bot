@@ -13,7 +13,7 @@ import collections
 import time
 import custom_command
 import schedules
-from schedules import every
+from schedules import every, background
 import requests
 import modules
 import handlers
@@ -89,6 +89,7 @@ class Bot(irc.bot.SingleServerIRCBot):
 
     def _start_schedules(self):
         for schedule in schedules.schedules:
+            print(schedule.function.__name__)
             self.reactor.scheduler.execute_every(schedule.delay, lambda: schedule.function(self))
             self.reactor.scheduler.execute_after(0, lambda: schedule.function(self))
 
@@ -118,7 +119,7 @@ class Bot(irc.bot.SingleServerIRCBot):
                 if data:  # sometimes this just returns None :/
                     self.user_data = data
                     self.update_users()
-        except aiohttp.ClientError:
+        except (aiohttp.ClientError, asyncio.TimeoutError):
             # Server sometimes fails; carry on
             return None
 
@@ -168,9 +169,11 @@ class Bot(irc.bot.SingleServerIRCBot):
         asyncio.run_coroutine_threadsafe(wrapper(), self.loop)
 
 
-@every(60)
-def update_users(connection):
-    connection.run_action(connection.get_users())
+@background
+async def update_users(connection):
+    while True:
+        await connection.get_users()
+        await asyncio.sleep(60)
 
 
 @every(.5)
