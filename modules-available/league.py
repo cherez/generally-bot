@@ -128,6 +128,7 @@ async def rank(connection, event, body):
 
 
 async def await_match(connection, match_id):
+    id = db.get('league', 'id')
     global current_game
     while True:
         try:
@@ -140,7 +141,13 @@ async def await_match(connection, match_id):
 
     if current_game and current_game.game_id == match.game_id:
         current_game = None
+    me = [i for i in match.participant_identities if str(i.player.summoner_id) == id][0]
+    me = match.participants[me.participantId-1]
     connection.handle_event('league-game-end', None, None, [match])
+    if me.stats.win:
+        connection.handle_event('win', None, None, [match])
+    else:
+        connection.handle_event('lose', None, None, [match])
 
 
 @handle("bot-start")
