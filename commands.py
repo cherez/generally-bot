@@ -2,6 +2,7 @@ commands = {}
 aliases = {}
 import db
 from functools import wraps
+from parse import compile
 
 from db import Dict, DictItem, List, ListItem, User
 
@@ -49,6 +50,22 @@ def long(doc):
         return func
 
     return wrapper
+
+
+def takes(format):
+    parser = compile(format)
+
+    def inner(func):
+        @wraps(func)
+        def wrapper(connection, event, body):
+            results = parser.parse(body)
+            if not results:
+                return "Expected format: {}".format(format)
+            return func(connection, event, *results.fixed, **results.named)
+
+        return wrapper
+
+    return inner
 
 
 @alias('commands')
@@ -137,7 +154,7 @@ def add(connection, event, body):
         return 'Added {} {}'.format(target, body)
 
     list = List.find(name=target)
-    
+
     if list:
         db.find_or_make(ListItem, list=list, value=body)
         db.db.save()
