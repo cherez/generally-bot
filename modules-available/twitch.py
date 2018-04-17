@@ -18,6 +18,15 @@ headers = {
 }
 
 
+async def check_token(connection, token):
+    url = "https://api.twitch.tv/kraken/"
+    head = headers.copy()
+    head["Authorization"] = "OAuth " + token
+    async with connection.session.get(url, headers=head) as resp:
+        json = await resp.json()
+        return json['token']
+
+
 async def set_game(connection, game):
     url = "https://api.twitch.tv/kraken/channels/{}".format(await wait_for(channel_id, None))
     params = {
@@ -33,8 +42,7 @@ async def set_title(connection, title):
         'channel[status]': title,
         'oauth_token': config['twitch_token']
     }
-    async with connection.session.put(url, params=params, headers=headers) as resp:
-        await resp.text()
+    await connection.session.put(url, params=params, headers=headers)
 
 
 async def get_channel(connection):
