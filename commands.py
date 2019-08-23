@@ -52,15 +52,16 @@ def long(doc):
     return wrapper
 
 
-def takes(format):
+def takes(format, summary = None):
     parser = compile(format)
+    if not summary: summary = format
 
     def inner(func):
         @wraps(func)
         def wrapper(connection, event, body):
             results = parser.parse(body)
             if not results:
-                return "Expected format: {}".format(format)
+                return "Expected format: !{} {}".format(func.__name__, summary)
             return func(connection, event, *results.fixed, **results.named)
 
         return wrapper
@@ -185,7 +186,6 @@ def remove(connection, event, body):
         return 'Usage: !remove [type] [value]'
     target = args[0]
     body = args[1]
-    session = connection.db()
     if target == 'list':
         list = List.find(name=body)
         if not list:
@@ -225,8 +225,4 @@ def remove(connection, event, body):
         db.db.save()
         return "Removed {} from {}.".format(body, target)
 
-    if dicts:
-        if not db.remove(session, db.DictItem, dict=target, name=body):
-            return "{} not in {}.".format(body, target)
-        return "Removed {} from {}.".format(body, target)
     return "I don't know what a " + target + " is."
