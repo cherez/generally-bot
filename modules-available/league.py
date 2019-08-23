@@ -13,6 +13,7 @@ from template import render
 client = None
 champs = None
 current_game = None
+last_game_id = None
 
 queue_types = {
     0: 'Custom',
@@ -46,23 +47,30 @@ async def set_summoner(connection, event, body):
 @background
 async def check_game(connection):
     global current_game
-    await asyncio.wait_for(champs, None)
+    global last_game_id
+    while champs is None:
+        await asyncio.sleep(10)
     id = db.get('league', 'id')
     game = await get_current_game(id)
     while True:
-        while game is None:
+        id = db.get('league', 'id')
+        # the Riot API has consistency issues; so make sure the game we get back isn't actually one we know already
+        # ended
+        while game is None or game.game_id == last_game_id:
             await asyncio.sleep(60)
+            id = db.get('league', 'id')
             game = await get_current_game(id)
 
         current_game = game
+        last_game_id = game.game_id
 
         participants = game.participants
         me = [i for i in participants if str(i.summoner_id) == id][0]
-        champ = champs.result().data[repr(me.champion_id)]
+        champ = champs[repr(me.champion_id)]
         queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
         mode = queue_types.get(queue, 'Game')  # Sane default when dealing with unknown game modes.
 
-        db.put('league', 'champion', champ.name)
+        db.put('league', 'champion', champ['name'])
         db.put('league', 'mode', mode)
         set_data()
 
@@ -72,7 +80,7 @@ async def check_game(connection):
             await asyncio.sleep(60)
             game = await get_current_game(id)
 
-        asyncio.ensure_future(await_match(connection, current_game.game_id))
+        await await_match(connection, current_game.game_id)
         current_game = game = None
 
         db.put('league', 'champion', '')
@@ -109,7 +117,8 @@ async def set_league_data_template(connection, event, body):
 @short("Prints current League ranks")
 async def rank(connection, event, body):
     id = db.get('league', 'id')
-    league_entries = await client.get_all_league_positions_for_summoner(id)
+    league_entries = await client.get_league_entries_for_summoner(id)
+
     # this is a list of each rank type
     for entry in league_entries:
         ranked, queue, size = entry.queue_type.split('_')
@@ -149,10 +158,17 @@ async def await_match(connection, match_id):
     else:
         connection.handle_event('lose', None, None, [match])
 
+@handle("league-game-start")
+def on_match(connection, event):
+    connection.handle_event('game-start', event.source, event.target, event.arguments)
+
 
 @handle("bot-start")
-def load_channel(connection, event):
+async def on_start(connection, event):
     global league_dict, client, champs
     league_dict = db.find_or_make(db.Dict, name='league')
     client = Client(config['riot_token'], 'na1', connection.session)
-    champs = asyncio.ensure_future(client.get_champion_list(dataById=True))
+    url = 'https://ddragon.leagueoflegends.com/cdn/9.10.1/data/en_US/champion.json'
+    async with connection.session.get(url) as r:
+        data = (await r.json())['data']
+        champs = {i['key']: i for i in data.values()}
