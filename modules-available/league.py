@@ -168,7 +168,7 @@ async def on_start(connection, event):
     global league_dict, client, champs
     league_dict = db.find_or_make(db.Dict, name='league')
     client = Client(config['riot_token'], 'na1', connection.session)
-    url = 'https://ddragon.leagueoflegends.com/cdn/9.10.1/data/en_US/champion.json'
+    url = 'https://ddragon.leagueoflegends.com/cdn/10.25.1/data/en_US/champion.json'
     async with connection.session.get(url) as r:
         data = (await r.json())['data']
         champs = {i['key']: i for i in data.values()}
