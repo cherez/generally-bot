@@ -1,4 +1,5 @@
 import asyncio
+from datetime import datetime
 
 import aiohttp
 import irc.bot
@@ -132,7 +133,7 @@ class Bot(irc.bot.SingleServerIRCBot):
             user.mod = name in users['moderators']
             all_users.append(user)
             if user._new:
-                print("New user!: {}".format(name))
+                print(f"{datetime.now().isoformat()} New user!: {name}")
                 new.append(user)
         db.db.save()
         if new:
