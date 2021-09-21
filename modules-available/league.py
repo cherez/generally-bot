@@ -66,11 +66,15 @@ async def check_game(connection):
 
         participants = game.participants
         me = [i for i in participants if str(i.summoner_id) == id][0]
-        champ = champs[repr(me.champion_id)]
+        champ = champs.get(repr(me.champion_id), {})
+
         queue = getattr(game, 'gameQueueConfigId', 0)  # missing on custom games
         mode = queue_types.get(queue, 'Game')  # Sane default when dealing with unknown game modes.
 
-        db.put('league', 'champion', champ['name'])
+        if champ:
+            db.put('league', 'champion', champ['name'])
+        else:
+            print(f"unknown champion: #{me.champion_id}")
         db.put('league', 'mode', mode)
         set_data()
 
@@ -168,7 +172,7 @@ async def on_start(connection, event):
     global league_dict, client, champs
     league_dict = db.find_or_make(db.Dict, name='league')
     client = Client(config['riot_token'], 'na1', connection.session)
-    url = 'https://ddragon.leagueoflegends.com/cdn/10.25.1/data/en_US/champion.json'
+    url = 'https://ddragon.leagueoflegends.com/cdn/11.15.1/data/en_US/champion.json'
     async with connection.session.get(url) as r:
         data = (await r.json())['data']
         champs = {i['key']: i for i in data.values()}
